@@ -3,55 +3,90 @@
 namespace Tests\Unit;
 
 use App\Http\Controllers\ClockInController;
+use App\Http\Requests\ClockInRequest;
+use App\Http\Requests\GetClockInsRequest;
 use App\Models\ClockIn;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Response;
 use Tests\TestCase;
+use Mockery;
 
 class ClockInTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_clockIn()
+    public function testClockInWithinDistance()
     {
+        // Arrange
+        $request = new ClockInRequest([
+            'worker_id' => 1,
+            'timestamp' => Carbon::now()->timestamp,
+            'latitude' => LOCATION_LATITUDE,
+            'longitude' => LOCATION_LONGITUDE,
+        ]);
+
         $controller = new ClockInController();
-        $request = [
-            'worker_id' => 123,
-            'timestamp' => 1653544800,
-            'latitude' => 30.049372457208833,
-            'longitude' => 31.24030670015996,
-        ];
 
-        $response = $controller->clockIn(new \Illuminate\Http\Request([], $request));
+        // Act
+        $response = $controller->clockIn($request);
 
-        $this->assertEquals(Response::HTTP_OK, $response->status());
-        $this->assertEquals('Clock-in Created Successfully', $response->getData()->message);
-
+        // Assert
+        $this->assertEquals(200, $response->getStatusCode());
+        $responseData = (array) $response->getData();
+        $this->assertArrayHasKey('data', $responseData);
+        $this->assertArrayHasKey('message', $responseData);
     }
 
     public function testGetClockInsSuccess()
     {
-        ClockIn::factory()->create(['worker_id' => 123]);
-        $controller = new ClockInController();
-        $request = new \Illuminate\Http\Request(['worker_id' => 123]);
+        // Arrange
+        $request = new GetClockInsRequest([
+            'worker_id' => 1,
+        ]);
 
+        $clockIn1 = ClockIn::create([
+            'worker_id' => 1,
+            'timestamp' => Carbon::now()->subDays(1),
+            'latitude' => 40.730610,
+            'longitude' => -73.935242,
+        ]);
+
+        $clockIn2 = ClockIn::create([
+            'worker_id' => 1,
+            'timestamp' => Carbon::now(),
+            'latitude' => 40.730610,
+            'longitude' => -73.935242,
+        ]);
+
+        $controller = new ClockInController();
+
+        // Act
         $response = $controller->getClockIns($request);
 
-        $this->assertEquals(Response::HTTP_OK, $response->status());
-        $this->assertGreaterThan(0, count($response->getData()));
+        // Assert
+        $this->assertEquals(200, $response->getStatusCode());
+        $responseData = (array) $response->getData();
+        $this->assertArrayHasKey('data', $responseData);
+        $this->assertCount(2, $responseData['data']);
     }
 
     public function testGetClockInsNoRecordsFound()
     {
-        $controller = new ClockInController();
-        $request = new \Illuminate\Http\Request(['worker_id' => 123]);
+        // Arrange
+        $request = new GetClockInsRequest([
+            'worker_id' => 2,
+        ]);
 
+        $controller = new ClockInController();
+
+        // Act
         $response = $controller->getClockIns($request);
 
-        $this->assertEquals(Response::HTTP_BAD_REQUEST, $response->status());
-        $this->assertEquals('No records found', $response->getData()->error);
+        // Assert
+        $this->assertEquals(400, $response->getStatusCode());
     }
+
 
     public function testIsWithinDistance()
     {

@@ -40,7 +40,7 @@ class ClockInController extends Controller
      *     )
      * )
      */
-    public function clockIn(Request $request)
+    public function clockIn(ClockInRequest $request)
     {
         try {
             $latitude = $request->latitude;
